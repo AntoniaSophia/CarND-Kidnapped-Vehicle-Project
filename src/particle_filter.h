@@ -11,32 +11,41 @@
 
 #include "helper_functions.h"
 
-struct Particle {
+using std::default_random_engine;
 
-	int id;
-	double x;
-	double y;
-	double theta;
-	double weight;
-	std::vector<int> associations;
-	std::vector<double> sense_x;
-	std::vector<double> sense_y;
+struct Particle {
+  int id;
+  double x;
+  double y;
+  double theta;
+  double weight;
+  std::vector<int> associations;
+  std::vector<double> sense_x;
+  std::vector<double> sense_y;
 };
 
 
 
 class ParticleFilter {
-	
-	// Number of particles to draw
-	int num_particles; 
-	
-	
-	
-	// Flag, if filter is initialized
-	bool is_initialized;
-	
-	// Vector of weights of all particles
-	std::vector<double> weights;
+ protected:
+  // Generator for random numbers
+  default_random_engine randomGenerator;
+
+  // Number of particles to draw
+  int num_particles;
+
+  // Flag, if filter is initialized
+  bool is_initialized;
+
+  // Vector of weights of all particles
+  std::vector<double> weights;
+
+  // Returns the calculations of the equations of the bicycle model (x,y,theta)
+  std::vector<double> Bicycle_Model(double delta_t,
+                              double std_pos[],
+                              const Particle& p,
+                              double velocity,
+                              double yaw_rate);
 	
 public:
 	
