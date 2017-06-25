@@ -88,7 +88,9 @@ std::vector<double> ParticleFilter::Bicycle_Model(double delta_t,
   double yawd = yaw_rate;
 
   // predicted state values to be returned at the end
-  double px_p, py_p;
+  double px_p;
+  double py_p;
+  double pyaw_p;
 
   // take care about risk of "division by zero"
   if (std::fabs(yawd) > 0.01) {
@@ -100,23 +102,56 @@ std::vector<double> ParticleFilter::Bicycle_Model(double delta_t,
   }
 
   // Yaw angle
-  double pyaw_p = yaw + yawd*delta_t;
+  pyaw_p = yaw + yawd*delta_t;
 
-  // Add noise
+  // Add Gaussian noise
   px_p = px_p + noise_x(randomGenerator);
   py_p = py_p + noise_y(randomGenerator);
   pyaw_p = pyaw_p + noise_theta(randomGenerator);
 
-  // return predicted state
+  // return predicted state variables
   return {px_p, py_p, pyaw_p};
 }
 
-void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
-	// TODO: Find the predicted measurement that is closest to each observed measurement and assign the 
-	//   observed measurement to this particular landmark.
-	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
-	//   implement this method and use it as a helper during the updateWeights phase.
+std::vector<LandmarkObs> ParticleFilter::dataAssociation(
+                                     std::vector<LandmarkObs> predicted,
+                                     std::vector<LandmarkObs>& observations) {
+  // Find the predicted measurement that is closest to each observed measurement
+  // and assign the observed measurement to this particular landmark.
 
+  double current_distance;    // the current distance
+  double dx;                  // the current distance in x direction
+  double dy;                  // the current distance in y direction
+  int min_i;                  // minimal landmark index found up to now
+  double min_distance_found;  // minimal distance found up to now
+
+  // Return value of the nearest neighbour observations
+  // The return value is a vector because there might exist more than
+  // one nearest neighbours
+  std::vector<LandmarkObs> nn_observations;
+
+  // iterate through all observations
+  for (unsigned i = 0; i < observations.size(); i++) {
+    LandmarkObs nextLandmark = observations[i];
+
+    min_distance_found = INFINITY;
+    min_i = -1;
+    for (unsigned j = 0; j < predicted.size(); j++) {
+      LandmarkObs predictedLandmark = predicted[j];
+      dx = (predictedLandmark.x - nextLandmark.x);
+      dy = (predictedLandmark.y - nextLandmark.y);
+      current_distance = sqrt(dx*dx + dy*dy);  // why not omit the square root?
+
+      if (current_distance < min_distance_found) {
+        min_distance_found = current_distance;
+        min_i = i;
+      }
+    }
+
+    nn_observations.push_back(predicted[min_i]);
+  }
+
+  return nn_observations;
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
