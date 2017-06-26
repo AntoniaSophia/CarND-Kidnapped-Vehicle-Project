@@ -46,7 +46,11 @@ class ParticleFilter {
                               const Particle& p,
                               double velocity,
                               double yaw_rate);
+
+  void calculateLocalToGlobal(LandmarkObs& obs, const Particle& p);
 	
+	double gaussProbability(const LandmarkObs& obs, const LandmarkObs &lm, const double sigma[]);
+
 public:
 	
 	// Set of current particles
@@ -87,7 +91,7 @@ public:
 	 * @param predicted Vector of predicted landmark observations
 	 * @param observations Vector of landmark observations
 	 */
-	std::vector<LandmarkObs> dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations);
+	void dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations);
 	
 	/**
 	 * updateWeights Updates the weights for each particle based on the likelihood of the 

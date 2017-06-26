@@ -10,9 +10,11 @@
 
 #include <sstream>
 #include <fstream>
-#include <math.h>
 #include <vector>
+#include <math.h>
 #include "map.h"
+#include "particle_filter.h"
+
 
 /*
  * Struct representing one position/control measurement.
@@ -41,6 +43,8 @@ struct LandmarkObs {
 	int id;				// Id of matching landmark in the map.
 	double x;			// Local (vehicle coordinates) x position of landmark observation [m]
 	double y;			// Local (vehicle coordinates) y position of landmark observation [m]
+  double x_global;  // global map x position of landmark observation [m]
+  double y_global;  // global map y position of landmark observation [m]
 };
 
 /*
