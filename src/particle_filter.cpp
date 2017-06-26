@@ -24,7 +24,7 @@ using namespace std;
 
 void ParticleFilter::init(double x, double y, double theta, double std[]) {
   // 1.Step: Set the number of particles
-  num_particles = 200;
+  num_particles = 150;
 
   // 2.Step: add random Gaussian noise to each particle x/y/theta.
   normal_distribution<double> noise_x(x, std[0]);
@@ -151,8 +151,8 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted,
 
 }
 
-void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
-		std::vector<LandmarkObs> observations, Map map_landmarks) {
+void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
+     std::vector<LandmarkObs> observations, Map map_landmarks) {
 
 	// TODO: Update the weights of each particle using a mult-variate Gaussian distribution. You can read
 	//   more about this distribution here: https://en.wikipedia.org/wiki/Multivariate_normal_distribution
@@ -162,75 +162,68 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   The following is a good resource for the theory:
 	//   https://www.willamette.edu/~gorr/classes/GeneralGraphics/Transforms/transforms2d.htm
 	//   and the following is a good resource for the actual equation to implement (look at equation 
-	//   3.33
-	//   http://planning.cs.uiuc.edu/node99.html
+  //   3.33
+  //   http://planning.cs.uiuc.edu/node99.html
 
-  // 1. Step: iterate through all particles 
- 
-  for (int i = 0; i < num_particles; i++) {
+  // 1. Step: iterate through all particles
+  for (int index_p = 0; index_p < num_particles; index_p++) {
+    Particle nextParticle = particles[index_p];
 
-    // get the particle x, y coordinates
-    double p_x = particles[i].x;
-    double p_y = particles[i].y;
-    double p_theta = particles[i].theta;
+    // 2.Step: filter all prediction landmarks within sensor range
+    // keep in mind: nearest neighbour is calculated by function dataAssociation
 
-    // create a vector to hold the map landmark locations predicted to be within sensor range of the particle
+    // create a vector which keeps the landmark locations within sensor range
     vector<LandmarkObs> predictions;
 
-    // for each map landmark...
-    for (unsigned int j = 0; j < map_landmarks.landmark_list.size(); j++) {
-
-      // get id and x,y coordinates
-      float lm_x = map_landmarks.landmark_list[j].x_f;
-      float lm_y = map_landmarks.landmark_list[j].y_f;
-      int lm_id = map_landmarks.landmark_list[j].id_i;
-      
-      // only consider landmarks within sensor range of the particle (rather than using the "dist" method considering a circular 
-      // region around the particle, this considers a rectangular region but is computationally faster)
-      if (fabs(lm_x - p_x) <= sensor_range && fabs(lm_y - p_y) <= sensor_range) {
-
-        // add prediction to vector
-        predictions.push_back(LandmarkObs{ lm_id, lm_x, lm_y });
+    // go through all landmarks and check the distance
+    for (Map::single_landmark_s nextLandmark : map_landmarks.landmark_list) {
+      double distance = dist(nextLandmark.x_f, nextLandmark.y_f,
+                             nextParticle.x,   nextParticle.y);
+      // only use those landmarks as predictions which are within sensor range
+      if (distance < sensor_range) {
+        predictions.push_back(LandmarkObs{ nextLandmark.id_i, nextLandmark.x_f, nextLandmark.y_f });
       }
     }
 
-    // create and populate a copy of the list of observations transformed from vehicle coordinates to map coordinates
-    vector<LandmarkObs> transformed_os;
+    // 3.Step: convert the observation coordinates from local vehicle to
+    //         global map coordinates
+
+    // create a vector which keeps the transformed observations
+    vector<LandmarkObs> transformedObservations;
+
     for (unsigned int j = 0; j < observations.size(); j++) {
-      double t_x = cos(p_theta)*observations[j].x - sin(p_theta)*observations[j].y + p_x;
-      double t_y = sin(p_theta)*observations[j].x + cos(p_theta)*observations[j].y + p_y;
-      transformed_os.push_back(LandmarkObs{ observations[j].id, t_x, t_y });
+      transformedObservations.push_back(
+                calculateLocalToGlobal(observations[j], nextParticle));
     }
 
-    // perform dataAssociation for the predictions and transformed observations on current particle
-    dataAssociation(predictions, transformed_os);
+    // 4.Step: perform dataAssociation for the predictions and
+    //         transformed observations on current particle
+    dataAssociation(predictions, transformedObservations);
 
-    // reinit weight
-    particles[i].weight = 1.0;
+    // 5.Step: reinitialize the weight for this particle with 1
+    particles[index_p].weight = 1.0;
 
-    for (unsigned int j = 0; j < transformed_os.size(); j++) {
-      
-      // placeholders for observation and associated prediction coordinates
-      double o_x, o_y, pr_x, pr_y;
-      o_x = transformed_os[j].x;
-      o_y = transformed_os[j].y;
 
-      int associated_prediction = transformed_os[j].id;
-      LandmarkObs a;
-      // get the x,y coordinates of the prediction associated with the current observation
+    // 6.Step: Calculate the weight by using the Multimodal Gaussian formula
+
+    // iterate through all observations in global coordinates
+    // --> these you can compare with the real landmark map coordinates
+    for (unsigned int j = 0; j < transformedObservations.size(); j++) {
+      // now find the corresponding prediction to this observation
+      LandmarkObs correspondingPrediction;
       for (unsigned int k = 0; k < predictions.size(); k++) {
-        if (predictions[k].id == associated_prediction) {
-          pr_x = predictions[k].x;
-          pr_y = predictions[k].y;
-          a = predictions[k];
+        if (predictions[k].id == transformedObservations[j].id) {  // Bingo!!
+          correspondingPrediction = predictions[k];
         }
       }
 
-      // product of this observation weight with total observations weight
-      particles[i].weight *= gaussProbability(a, transformed_os[j],std_landmark);
+      // finally: product of this observation weight
+      // with total observations weight
+      particles[index_p].weight *= gaussProbability(correspondingPrediction,
+                                                    transformedObservations[j],
+                                                    std_landmark);
     }
-  }      
-  
+  }
 }
 
 double ParticleFilter::gaussProbability(const LandmarkObs& obs,
@@ -330,8 +323,13 @@ string ParticleFilter::getSenseY(Particle best)
     return s;
 }
 
-void ParticleFilter::calculateLocalToGlobal(LandmarkObs& obs,
+LandmarkObs ParticleFilter::calculateLocalToGlobal(const LandmarkObs& obs,
                                             const Particle& p) {
-  obs.x_global = p.x + obs.x * cos(p.theta) - obs.y * sin(p.theta);
-  obs.y_global = p.y + obs.x * sin(p.theta) + obs.y * cos(p.theta);
+  LandmarkObs returnValue;
+
+  returnValue.x = p.x + obs.x * cos(p.theta) - obs.y * sin(p.theta);
+  returnValue.y = p.y + obs.x * sin(p.theta) + obs.y * cos(p.theta);
+  returnValue.id = obs.id;
+
+  return returnValue;
 }
