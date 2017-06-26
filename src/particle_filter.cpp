@@ -232,14 +232,14 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
 double ParticleFilter::gaussProbability(const LandmarkObs& obs,
                                         const LandmarkObs &lm,
-                                        const double sigma[]) {
-  double cov_x = sigma[0]*sigma[0];
-  double cov_y = sigma[1]*sigma[1];
-  double normalizer = 2.0*M_PI*sigma[0]*sigma[1];
+                                        const double std_landmark[]) {
+  double cov_xx = std_landmark[0]*std_landmark[0];
+  double cov_yy = std_landmark[1]*std_landmark[1];
+  double normalizer = 2.0*M_PI*std_landmark[0]*std_landmark[1];
   double dx = (obs.x - lm.x);
   double dy = (obs.y - lm.y);
 
-  return exp(-(dx*dx/(2*cov_x) + dy*dy/(2*cov_y)))/normalizer;
+  return exp(-(dx*dx/(2*cov_xx) + dy*dy/(2*cov_yy)))/normalizer;
 }
 
 void ParticleFilter::resample() {
