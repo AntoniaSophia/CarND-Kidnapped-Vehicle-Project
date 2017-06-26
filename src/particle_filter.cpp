@@ -116,39 +116,43 @@ std::vector<double> ParticleFilter::Bicycle_Model(double delta_t,
 
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted,
                                      std::vector<LandmarkObs>& observations) {
+  // Find the predicted measurement which is closest
+  // to each observed measurement and assign the
+  // observed measurement to this particular landmark.
 
- for (unsigned int i = 0; i < observations.size(); i++) {
-    // Find the predicted measurement that is closest to each observed measurement
-    // and assign the observed measurement to this particular landmark.
 
+  // 1.Step: iterate through the observations
+  for (int i = 0; i < observations.size(); i++) {
+    LandmarkObs nextObservation = observations[i];
 
-    // grab current observation
-    LandmarkObs o = observations[i];
+    // 2.Step: initializations
+    // Start with minimum distance of INFINITY (it can only get closer... ;-))
+    double minimumDistance = INFINITY;
 
-    // init minimum distance to maximum possible
-    double min_dist = numeric_limits<double>::max();
+    // Start with invalid id of landmark from map placeholder
+    // (that means: no match found yet)
+    int mapId = -1;
 
-    // init id of landmark from map placeholder to be associated with the observation
-    int map_id = -1;
-    
-    for (unsigned int j = 0; j < predicted.size(); j++) {
-      // grab current prediction
-      LandmarkObs p = predicted[j];
-      
-      // get distance between current/predicted landmarks
-      double cur_dist = dist(o.x, o.y, p.x, p.y);
+    // 3.Step: now step over the predictions and
+    // try to find the nearest neighbour
+    for (int j = 0; j < predicted.size(); j++) {
+      LandmarkObs nextPrediction = predicted[j];
+
+      // get Euklidian distance between current/predicted landmarks
+      double currentDistance = dist(nextObservation.x, nextObservation.y,
+                             nextPrediction.x,  nextPrediction.y);
 
       // find the predicted landmark nearest the current observed landmark
-      if (cur_dist < min_dist) {
-        min_dist = cur_dist;
-        map_id = p.id;
+      if (currentDistance < minimumDistance) {   // Bingo, a new nearest neighbour was found!
+        minimumDistance = currentDistance;
+        mapId = nextPrediction.id;
       }
     }
 
-    // set the observation's id to the nearest predicted landmark's id
-    observations[i].id = map_id;
+    // 4.Step: finally set the observation id to the nearest neighbour
+    //        predicted landmark's id
+    observations[i].id = mapId;
   }
-
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
@@ -239,10 +243,9 @@ double ParticleFilter::gaussProbability(const LandmarkObs& obs,
 }
 
 void ParticleFilter::resample() {
-	// TODO: Resample particles with replacement with probability proportional to their weight. 
-	// NOTE: You may find std::discrete_distribution helpful here.
-	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
-  vector<Particle> new_particles;
+  // Resample particles with replacement with
+  // probability proportional to their weight.
+  vector<Particle> newParticles;
 
   // get all of the current weights
   vector<double> weights;
@@ -252,47 +255,48 @@ void ParticleFilter::resample() {
 
   // generate random starting index for resampling wheel
   uniform_int_distribution<int> uniintdist(0, num_particles-1);
-  auto index = uniintdist(randomGenerator);
+  int index = uniintdist(randomGenerator);
 
-  // get max weight
-  double max_weight = *max_element(weights.begin(), weights.end());
+  // get maximum weight
+  double maximumWeight = *max_element(weights.begin(), weights.end());
 
   // uniform random distribution [0.0, max_weight)
-  uniform_real_distribution<double> unirealdist(0.0, max_weight);
+  uniform_real_distribution<double> unirealdist(0.0, maximumWeight);
 
   double beta = 0.0;
 
-  // spin the resample wheel!
+  // Reusing the resample wheel from Sebastian
   for (int i = 0; i < num_particles; i++) {
     beta += unirealdist(randomGenerator) * 2.0;
     while (beta > weights[index]) {
       beta -= weights[index];
       index = (index + 1) % num_particles;
     }
-    new_particles.push_back(particles[index]);
+    newParticles.push_back(particles[index]);
   }
 
-  particles = new_particles;
-
+  particles = newParticles;
 }
 
 Particle ParticleFilter::SetAssociations(Particle particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y)
 {
-	//particle: the particle to assign each listed association, and association's (x,y) world coordinates mapping to
-	// associations: The landmark id that goes along with each listed association
-	// sense_x: the associations x mapping already converted to world coordinates
-	// sense_y: the associations y mapping already converted to world coordinates
+  // particle: the particle to assign each listed association,
+  // and association's (x,y) world coordinates mapping to
 
-	//Clear the previous associations
-	particle.associations.clear();
-	particle.sense_x.clear();
-	particle.sense_y.clear();
+  // associations: The landmark id that goes along with each listed association
+  // sense_x: the associations x mapping already converted to world coordinates
+  // sense_y: the associations y mapping already converted to world coordinates
 
-	particle.associations= associations;
- 	particle.sense_x = sense_x;
- 	particle.sense_y = sense_y;
+  // Clear the previous associations
+  particle.associations.clear();
+  particle.sense_x.clear();
+  particle.sense_y.clear();
 
- 	return particle;
+  particle.associations = associations;
+  particle.sense_x = sense_x;
+  particle.sense_y = sense_y;
+
+  return particle;
 }
 
 string ParticleFilter::getAssociations(Particle best)
